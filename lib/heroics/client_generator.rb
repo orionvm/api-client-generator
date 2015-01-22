@@ -1,3 +1,5 @@
+require 'fileutils'
+
 module Heroics
   # Generate a static client that uses Heroics under the hood.  This is a good
   # option if you want to ship a gem or generate API documentation using Yard.
@@ -11,10 +13,50 @@ module Heroics
   #     request made by the client.  Default is no custom headers.
   #   - cache: Optionally, a Moneta-compatible cache to store ETags.  Default
   #     is no caching.
-  def self.generate_client(module_name, schema, url, options)
-    filename = File.dirname(__FILE__) + '/views/client.erb'
+  def self.generate_client(schema, view, output_folder, options)
+    if Pathname.new(view).absolute?
+      path = view
+    else
+      path = File.join(File.dirname(__FILE__), "views", view)
+    end
+
+    context = build_context(schema, options)
+    pre_processor = File.join(path, 'view_preprocessor.rb')
+    if File.exists?(pre_processor)
+      require pre_processor
+      begin
+        context = transform_context(context)
+      rescue NoMethodError
+        raise "view_preprocessor.rb must define method 'transform_context(context)' that returns a modified context hash"
+      end
+    end
+
+    self.process_dir(schema, path, output_folder, context, "")
+  end
+
+  def self.process_dir(schema, input, output, context, current)
+    FileUtils.mkdir_p File.join(output, current % context)
+    Dir.foreach File.join(input, current) do |item|
+      next if item == "." || item == ".."
+      if File.directory?(File.join(input, current, item))
+        self.process_dir(schema, input, output, context, File.join(current, item))
+      else
+        if item.end_with? ".erb"
+          outfilename = item.sub(%r{\.erb\z}, "")
+          outfile = File.join(output, current, outfilename) % context 
+          File.open(outfile, 'w') do |file|
+            file.write(self.process_erb(schema, File.join(input, current, item), context))
+          end
+        else
+          outfile = File.join(output, current, item) % context 
+          FileUtils.cp(File.join(input, current, item), outfile)
+        end
+      end
+    end
+  end
+
+  def self.process_erb(schema, filename, context)
     eruby = Erubis::Eruby.new(File.read(filename))
-    context = build_context(module_name, schema, url, options)
     eruby.evaluate(context)
   end
 
@@ -22,28 +64,31 @@ module Heroics
 
   # Process the schema to build up the context needed to render the source
   # template.
-  def self.build_context(module_name, schema, url, options)
+  def self.build_context(schema, options)
     resources = []
     schema.resources.each do |resource_schema|
       links = []
       resource_schema.links.each do |link_schema|
+        params = link_schema.parameter_details.map {|p| p.name.upcase }
+        path, _ = link_schema.format_path(params)
         links << GeneratorLink.new(link_schema.name.gsub('-', '_'),
+                                   link_schema.method,
+                                   path,
                                    link_schema.description,
                                    link_schema.parameter_details,
                                    link_schema.needs_request_body?)
+        #require 'byebug'; byebug
       end
       resources << GeneratorResource.new(resource_schema.name.gsub('-', '_'),
                                          resource_schema.description,
                                          links)
     end
 
-    context = {module_name: module_name,
-               url: url,
-               default_headers: options.fetch(:default_headers, {}),
-               cache: options.fetch(:cache, {}),
+    context = options.merge({
                description: schema.description,
                schema: MultiJson.dump(schema.schema),
-               resources: resources}
+               resources: resources
+    })
   end
 
   # A representation of a resource for use when generating source code in the
@@ -66,10 +111,12 @@ module Heroics
   # A representation of a link for use when generating source code in the
   # template.
   class GeneratorLink
-    attr_reader :name, :description, :parameters, :takes_body
+    attr_reader :name, :method, :path, :description, :parameters, :takes_body
 
-    def initialize(name, description, parameters, takes_body)
-      @name = name
+    def initialize(name, method, path, description, parameters, takes_body)
+      @name = name.gsub(/[()]/, "")
+      @method = method
+      @path = path
       @description = description
       @parameters = parameters
       if takes_body
@@ -82,6 +129,10 @@ module Heroics
     def parameter_names
       @parameters.map { |info| info.name }.join(', ')
     end
+
+    def parameters
+      @parameters.map { |info| info.name }
+    end
   end
 
   # Convert a lower_case_name to CamelCase.
@@ -92,6 +143,19 @@ module Heroics
       text.sub!(replace) { |match| match.upcase }
     end
     text
+  end
+
+  def build_link_path(schema, link)
+    link['href'].gsub(%r|(\{\([^\)]+\)\})|) do |ref|
+      ref = ref.gsub('%2F', '/').gsub('%23', '#').gsub(%r|[\{\(\)\}]|, '')
+      ref_resource = ref.split('#/definitions/').last.split('/').first.gsub('-','_')
+      identity_key, identity_value = schema.dereference(ref)
+      if identity_value.has_key?('anyOf')
+        '{' + ref_resource + '_' + identity_value['anyOf'].map {|r| r['$ref'].split('/').last}.join('_or_') + '}'
+      else
+        '{' + ref_resource + '_' + identity_key.split('/').last + '}'
+      end
+    end
   end
 
   # A representation of a body parameter.
