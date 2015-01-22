@@ -1,0 +1,83 @@
+import time
+import json
+
+import requests
+
+from <%= @package_name %> import error
+
+class ApiRequestor(object):
+	def __init__(self, api_id, api_secret, base_url):
+		self.api_id = api_id
+		self.api_secret = api_secret
+		self.base_url = base_url
+		self.token_cache = None
+
+	def request(self, method, url, data=None):
+		json, body, status = self._request(method, url, data)
+		if status == 401 and 'invalid_token' in json:
+			# Clear the expired token and try again
+			self.token_cache = None
+			json, body, status = self._request(method, url, data)
+
+		if 200 <= status < 300:
+			return json
+
+		if status == 401:
+			raise error.AuthenticationError(json, body, status)
+		elif status == 403:
+			raise error.UnauthorizedError(json, body, status)
+		elif status in [400, 404]:
+			raise error.InvalidRequestError(json, body, status)
+		elif status == 422:
+			raise error.ValidationError(json, body, status)
+		else:
+			raise error.APIError(json, body, status)
+
+	def _request(self, method, url, data=None):
+		if self.token_cache == None or self.token_cache['expires'] <= time.time():
+			self.token_cache = self._get_token()
+			self.token_cache['expires'] = time.time() + float(self.token_cache['expires_in']) - 60 # Some buffer against time skew
+
+		headers = {
+			"Authorization": "Bearer %s" % self.token_cache['access_token'],
+			"User-agent": "Generated Client (Python)",
+			"Content-type": "application/json",
+			"Accept": "application/json"
+		}
+
+		url = self.base_url + "/api/v1" + url
+
+		if data:
+			data = json.dumps(data)
+
+		try:
+			result = requests.request(method, url, headers=headers, data=data)
+			json_response = None
+			try:
+				json_response = result.json()
+			except:
+				json_response = None
+			return json_response, result.text, result.status_code
+		except Exception as e:
+			raise error.APIConnectionError("%s: %s" % (type(e).__name__, str(e)))
+
+	def _get_token(self):
+		login_url = self.base_url + "/oauth/token"
+
+		invalid = { "access_token":"0000000000000000000000000000000000000000000000000000000000000000",
+								"token_type":"bearer",
+								"expires_in":2,
+								"refresh_token":None,
+								"scope":"" }
+		try:
+			login_response = requests.post(login_url, data={
+				'grant_type': 'client_credentials',
+				'client_id': self.api_id,
+				'client_secret': self.api_secret
+			}).json()
+			token = login_response["access_token"]
+			if token == None or len(token) != 64:
+				return invalid
+			return login_response
+		except:
+			return invalid

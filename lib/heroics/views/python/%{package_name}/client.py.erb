@@ -1,0 +1,43 @@
+# -*- coding: utf-8 -*-
+import time
+import json
+
+from <%= @package_name %>.api_requestor import ApiRequestor
+
+# <%= @description %>
+class Client:
+
+  def __init__(self, api_id, api_secret, base_url):
+    self.requestor = ApiRequestor(api_id, api_secret, base_url)
+
+    <% for resource in @resources
+      next if resource.links.count == 0 %>
+    self.<%= resource.class_name %> = Client.<%= resource.class_name %>(self)
+    <% end %>
+  
+  def request(self, method, url, body={}):
+    return self.requestor.request(method, url, body)
+
+<% for resource in @resources %>
+  <% next if resource.links.count == 0 %>
+  class <%= resource.class_name %>:
+    r""" <%= resource.description %> """
+    def __init__(self, api):
+      self.client = api
+    
+  <% for link in resource.links %>
+    <% params = (["self"] + (link.parameters.map {|param| param.gsub("body", "**body")})).join(', ') %>
+    def <%= link.name %>(<%= params %>):
+      r""" <%= link.description %>"""
+      <% path = link.path %>
+      <% for param in link.parameters
+        path = path.gsub(param.upcase, "%(" + param + ")s")
+      end %>
+      <% 
+        args = ["'#{link.method}'", "'#{path}' % locals()"]
+        args += ["body"] if link.parameters.include?("body")
+      %>
+      return self.client.request(<%= args.join(", ") %>)
+  <% end %>
+
+<% end %>

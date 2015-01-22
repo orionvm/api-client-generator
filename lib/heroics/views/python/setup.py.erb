@@ -1,0 +1,42 @@
+import sys
+
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
+
+install_requires = []
+if sys.version_info < (2, 6):
+    install_requires.append('requests >= 0.8.8, < 0.10.1')
+    install_requires.append('ssl')
+else:
+    install_requires.append('requests >= 0.8.8')
+
+if sys.version_info < (3, 0):
+    try:
+        from util import json
+    except ImportError:
+        install_requires.append('simplejson')
+
+setup(
+    name='<%= @package_name %>',
+    version=<%= @version %>,
+    description='<%= @company_name %> Cloud Platform API python bindings',
+    author='<%= @company_name %>',
+    url='<%= @homepage %>',
+    packages=['<%= @package_name %>'],
+    install_requires=install_requires,
+    classifiers=[
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 2.6",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.2",
+        "Programming Language :: Python :: 3.3",
+        "Programming Language :: Python :: Implementation :: PyPy",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+    ])
