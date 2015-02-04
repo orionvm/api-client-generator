@@ -13,6 +13,8 @@ module Heroics
   #     request made by the client.  Default is no custom headers.
   #   - cache: Optionally, a Moneta-compatible cache to store ETags.  Default
   #     is no caching.
+  PREPROCESSOR_FILENAME = 'view_preprocessor.rb'
+
   def self.generate_client(schema, view, output_folder, options)
     if Pathname.new(view).absolute?
       path = view
@@ -21,7 +23,7 @@ module Heroics
     end
 
     context = build_context(schema, options)
-    pre_processor = File.join(path, 'view_preprocessor.rb')
+    pre_processor = File.join(path, PREPROCESSOR_FILENAME)
     if File.exists?(pre_processor)
       require pre_processor
       begin
@@ -37,7 +39,7 @@ module Heroics
   def self.process_dir(schema, input, output, context, current)
     FileUtils.mkdir_p File.join(output, current % context)
     Dir.foreach File.join(input, current) do |item|
-      next if item == "." || item == ".."
+      next if item == "." || item == ".." || (item == PREPROCESSOR_FILENAME && current == '')
       if File.directory?(File.join(input, current, item))
         self.process_dir(schema, input, output, context, File.join(current, item))
       else
