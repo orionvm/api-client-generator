@@ -69,7 +69,7 @@ module Heroics
     schema.resources.each do |resource_schema|
       links = []
       resource_schema.links.each do |link_schema|
-        params = link_schema.parameter_details.map {|p| p.name.upcase }
+        params = link_schema.parameter_details.map {|p| "{" + p.name + "}" }
         path, _ = link_schema.format_path(params)
         links << GeneratorLink.new(link_schema.name.gsub('-', '_'),
                                    link_schema.method,
@@ -126,12 +126,8 @@ module Heroics
 
     # The list of parameters to render in generated source code for the method
     # signature for the link.
-    def parameter_names
+    def parameter_names_string
       @parameters.map { |info| info.name }.join(', ')
-    end
-
-    def parameters
-      @parameters.map { |info| info.name }
     end
   end
 

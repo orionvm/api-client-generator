@@ -26,16 +26,16 @@ class Client:
       self.client = api
     
   <% for link in resource.links %>
-    <% params = (["self"] + (link.parameters.map {|param| param.gsub("body", "**body")})).join(', ') %>
+    <% params = (["self"] + (link.parameters.map {|param| param.name.gsub("body", "**body")})).join(', ') %>
     def <%= link.name %>(<%= params %>):
       r""" <%= link.description %>"""
-      <% path = link.path %>
-      <% for param in link.parameters
-        path = path.gsub(param.upcase, "%(" + param + ")s")
-      end %>
-      <% 
-        args = ["'#{link.method}'", "'#{path}' % locals()"]
-        args += ["body"] if link.parameters.include?("body")
+      <%
+      url = link.path
+      for param in link.parameters
+        url = url.sub("{" + param.name + "}", "%(" + param.name + ")s")
+      end
+      args = ["'#{link.method}'", "'#{url}' % locals()"]
+      args += ["body"] if params.include?("**body")
       %>
       return self.client.request(<%= args.join(", ") %>)
   <% end %>
