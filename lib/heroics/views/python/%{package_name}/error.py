@@ -7,9 +7,7 @@ class APIError(Exception):
 		self.body = body
 		self.status = status
 
-		if message == None and json != None:
-			message = "%s: %s" % (json.get('error', ""), json.get('error_description', ''))
-		else:
+		if message == None:
 			message = body
 
 		super(APIError, self).__init__(message)
