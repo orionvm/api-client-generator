@@ -91,7 +91,7 @@ module Heroics
   # A wrapper around a bare link element for a resource in a JSON schema to
   # make it easier to use.
   class LinkSchema
-    attr_reader :name, :resource_name, :description
+    attr_reader :name, :resource_name, :description, :rel
 
     # Instantiate a link schema.
     #
@@ -105,6 +105,7 @@ module Heroics
       @link_index = link_index
       @name = Heroics.ruby_name(link_schema['title'])
       @description = link_schema['description']
+      @rel = link_schema['rel']
     end
 
     # Get the resource name in pretty form.

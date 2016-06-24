@@ -74,6 +74,7 @@ module Heroics
         params = link_schema.parameter_details.map {|p| "{" + p.name + "}" }
         path, _ = link_schema.format_path(params)
         links << GeneratorLink.new(link_schema.name.gsub('-', '_'),
+                                   link_schema.rel,
                                    link_schema.method,
                                    path,
                                    link_schema.description,
@@ -96,7 +97,7 @@ module Heroics
   # A representation of a resource for use when generating source code in the
   # template.
   class GeneratorResource
-    attr_reader :name, :description, :links
+    attr_reader :name, :description, :links, :rel
 
     def initialize(name, description, links)
       @name = name
@@ -113,10 +114,11 @@ module Heroics
   # A representation of a link for use when generating source code in the
   # template.
   class GeneratorLink
-    attr_reader :name, :method, :path, :description, :parameters, :takes_body
+    attr_reader :name, :rel, :method, :path, :description, :parameters, :takes_body
 
-    def initialize(name, method, path, description, parameters, takes_body)
+    def initialize(name, rel, method, path, description, parameters, takes_body)
       @name = name.gsub(/[()]/, "")
+      @rel = rel
       @method = method
       @path = path
       @description = description
