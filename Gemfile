@@ -8,6 +8,7 @@ group :development do
   gem 'minitest', '4.7.5'
   gem 'rake'
   gem 'turn'
+  gem 'byebug'
 end
   
 gem 'erubis', '~> 2.7.0'
