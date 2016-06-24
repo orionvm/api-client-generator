@@ -1,0 +1,35 @@
+package <%= @package_name %>
+
+<% for resource in @resources %>
+  <% next if resource.links.empty? %>
+type <%= resource.class_name %> struct {
+  client  *ApiClient
+}
+<% end %>
+
+<% for resource in @resources %>
+  <% next if resource.links.empty? %>
+
+  <% for link in resource.links %>
+    <% params = link.parameters.map { |param|
+      type = param.name == 'body' ? 'interface{}' : 'string'
+      param.name + " " + type
+    }.join(', ') %>
+    <% array_request = link.rel == 'instances'
+       return_type = "map[string]interface{}"
+       return_type = "[]" + return_type if array_request
+       function_name = array_request ? "ArrayRequest" : "MapRequest"
+    %>
+func (resource *<%= resource.class_name %>) <%= link.name.capitalize %>(<%= params %>) (status int, rbody <%= return_type %>, err error) {
+  <% url = '"' + link.path + '"'
+     for param in link.parameters
+       url = url.sub("{" + param.name + "}", '" + ' + param.name + ' + "')
+     end
+     data = link.parameters.map(&:name).include?("body") ? "body" : "nil"
+  %>
+  url := resource.client.apiPath + <%= url %>
+  return resource.client.<%= function_name %>(url, "<%= link.method.upcase %>", <%= data %>)
+}
+  <% end %>
+
+<% end %>
