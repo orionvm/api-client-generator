@@ -32,18 +32,32 @@ type AuthResponse struct {
   ExpiresIn   int64  `json:"expires_in"`
 }
 
-func NewApiClient(app_id string, app_secret string, base_url string) ApiClient {
-  client := ApiClient{
-    applicationID:     app_id,
-    applicationSecret: app_secret,
-    baseURL:           base_url,
-    apiPath:           "/api/v1",
-  }
+func setup(client *ApiClient) {
+	client.apiPath = "/api/v1"
 <% for resource in @resources %>
   <% next if resource.links.empty? %>
-  client.<%= resource.class_name %> = <%= resource.class_name %>{ client: &client }
+	client.<%= resource.class_name %> = <%= resource.class_name %>{ client: client }
 <% end %>
-  return client
+}
+
+func NewApplicationClient(base_url string, app_id string, app_secret string) ApiClient {
+	client := ApiClient{
+		applicationID:     app_id,
+		applicationSecret: app_secret,
+		baseURL:           base_url,
+	}
+	setup(&client)
+	return client
+}
+
+func NewAccessTokenClient(base_url string, access_token string) ApiClient {
+	client := ApiClient{
+		baseURL:        base_url,
+		token:          access_token,
+		tokenExpiresAt: time.Now().AddDate(10, 0, 0).Unix(),
+	}
+	setup(&client)
+	return client
 }
 
 func (api *ApiClient) Auth() error {
