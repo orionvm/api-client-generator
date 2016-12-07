@@ -1,35 +1,36 @@
 package <%= @package_name %>
 
 import (
-  "bytes"
-  "encoding/json"
-  "errors"
-  "github.com/franela/goreq"
-  "time"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"time"
+
+	"github.com/franela/goreq"
 )
 
 type ApiClient struct {
-  applicationID     string
-  applicationSecret string
-  baseURL           string
-  token             string
-  tokenExpiresAt    int64
-  apiPath           string
+	applicationID     string
+	applicationSecret string
+	baseURL           string
+	token             string
+	tokenExpiresAt    int64
+	apiPath           string
 <% for resource in @resources %>
   <% next if resource.links.empty? %>
-  <%= resource.class_name %>        <%= resource.class_name %>
+	<%= resource.class_name %>        <%= resource.class_name %>
 <% end %>
 }
 
 type AuthRequest struct {
-  GrantType    string `json:"grant_type"`
-  ClientId     string `json:"client_id"`
-  ClientSecret string `json:"client_secret"`
+	GrantType    string `json:"grant_type"`
+	ClientId     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
 }
 type AuthResponse struct {
-  AccessToken string `json:"access_token"`
-  TokenType   string `json:"token_type"`
-  ExpiresIn   int64  `json:"expires_in"`
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int64  `json:"expires_in"`
 }
 
 func setup(client *ApiClient) {
